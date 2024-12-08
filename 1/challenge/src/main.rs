@@ -1,69 +1,62 @@
+use std::fs;
+use std::io;
 use std::env;
-use std::fs::read_to_string;
 
-fn main(){
-    let args: Vec<String> = env::args().collect();
-    let file_path = &args[1];
+fn main() -> std::io::Result<()> {
+    let _args: Vec<String> = env::args().collect();
+    let file_path = &_args[1];
 
-    let file = read_lines(&file_path);
-    let mut vect_tuple = to_tuple(&file);
+    let result = read_file(&file_path).unwrap();
 
-    let mut result: i32 = 0;
+    let similarity = find_similarity(&result).unwrap();
+    let distance = find_distance(result).unwrap();
 
+    println!("The similarity is: {similarity}");
+    println!("The distance is: {distance}");
+    Ok(())
+}
 
-    while !vect_tuple.1.is_empty() {
-
-        let min_left: &i32 = vect_tuple.0.iter().min()
-            .expect("Error catching num.");
-        let min_right: &i32 = vect_tuple.1.iter().min()
-            .expect("Error catching num.");
+fn find_distance(mut arr: [Vec<i32>; 2]) -> Result<i32, io::Error> {
+    let mut distance: i32 = 0;
+    while !arr[1].is_empty() {
+        let min_left: &i32 = arr[0].iter().min().unwrap();
+        let min_right: &i32 = arr[1].iter().min().unwrap();
 
         let diff: i32 = match min_left > min_right {
             true => min_left - min_right,
             false => min_right - min_left,
-        };
+        };    
+        distance += diff;
 
-        result += diff;
+        let index_left: usize = arr[0].iter().position(|num| num == min_left).unwrap();
+        let index_right: usize = arr[1].iter().position(|num| num == min_right).unwrap();
 
-        let index_left: usize = vect_tuple.0.iter().position(|num| num == min_left)
-            .expect("Error indexing tuple");
-
-        let index_right: usize = vect_tuple.1.iter().position(|num| num == min_right)
-            .expect("Error indexing tuple");
-
-        println!("{index_left}:{min_left}");
-        println!("{index_right}:{min_right}");
-        vect_tuple.0.remove(index_left);
-        vect_tuple.1.remove(index_right);
+        arr[0].remove(index_left);
+        arr[1].remove(index_right);
     }
-    println!("{result}");
+
+    Ok(distance)
 }
 
-fn read_lines(file_name: &String) -> Vec<String> {
-    let mut result = Vec::new();
-
-    for line in read_to_string(file_name).unwrap().lines() {
-        result.push(line.to_string())
+fn read_file(filename: &str) -> Result<[Vec<i32>; 2], io::Error> {
+    let mut result: [Vec<i32>; 2] = [Vec::new(), Vec::new()];
+    for line in fs::read_to_string(filename).unwrap().lines() {
+        result[0].push(line[..5].parse::<i32>().unwrap());
+        result[1].push(line[8..].parse::<i32>().unwrap());
     }
-
-    return result;
+    Ok(result)
 }
 
-fn to_tuple(input: &Vec<String>) -> (Vec<i32>, Vec<i32>) {
-
-    let mut first_vect: Vec<i32> = Vec::new(); 
-    let mut second_vect: Vec<i32> = Vec::new(); 
-
-    for line in input {
-        let first_num = line[..5].parse::<i32>()
-            .expect("Error parsing");
-        let second_num = line[8..].parse::<i32>()
-            .expect("Error parsing");
-
-        first_vect.push(first_num);
-        second_vect.push(second_num);
+fn find_similarity(arr: &[Vec<i32>; 2]) -> Result<i32, io::Error> {
+    let mut similarity: i32 = 0;
+    for i in &arr[0] {
+        let mut count = 0;
+        for j in &arr[1] {
+            if i == j {
+                count+=1;
+            }
+        }
+        similarity += i * count;
     }
-    let output_tuple: (Vec<i32>, Vec<i32>) = (first_vect, second_vect);
-
-    return output_tuple;
+    Ok(similarity)
 }

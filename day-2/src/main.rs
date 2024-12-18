@@ -23,16 +23,49 @@ fn main() -> Result<(), Error> {
     let file_name: &str = &args[1];
 
     let reports = read_file(file_name).unwrap();
+    let mut safe_reports = 0;
 
     for report in reports {
-        check_report(&report);
+        if check_report(&report).unwrap() {safe_reports += 1}
     }
+
+    println!("number of safe reports: {safe_reports}");
 
     Ok(())
 }
 
 fn check_report(report: &Vec<i32>) -> Result<bool, Error> {
-    if report[0] <= report[1]
+    match check_adjacent(&report).unwrap() && check_monotonic(&report).unwrap() {
+        true => return Ok(true),
+        false => return Ok(false),
+
+    };
+}
+
+fn check_adjacent(report: &Vec<i32>) -> Result<bool, Error> {
+    for i in 0..report.len() - 1 {
+        let result = (report[i] - report[i + 1]).abs();
+        if result == 0 || result > 3 {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+
+fn check_monotonic(report: &Vec<i32>) -> Result<bool, Error> {
+    let mut increasing: bool = true;
+    let mut decreasing: bool = true;
+
+    for i in 0..report.len() - 1 {
+        if report[i] < report[i + 1] {
+            decreasing = false;
+        }
+        if report[i] > report[i + 1] {
+            increasing = false; 
+        }
+    }
+
+    Ok(increasing || decreasing)
 }
 
 fn read_file(f: &str) -> Result<Vec<Vec<i32>>, Error> {

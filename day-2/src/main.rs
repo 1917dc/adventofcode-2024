@@ -1,76 +1,65 @@
+use std::cmp::Ordering;
 use std::env;
 use std::fs;
 use std::io::Error;
-
-/*
-    Nosed reactor safety systems can only tolerate levels that are
-    either gradually increasing or gradually decreasing.
-    So, a report only counts as safe if both of the following are true:
-        * The levels are either all increasing or all decreasing.
-        * Any two adjacent levels differ by at least one and at most three.
-
-    7 6 4 2 1: Safe because the levels are all decreasing by 1 or 2.
-    1 2 7 8 9: Unsafe because 2 7 is an increase of 5.
-    9 7 6 2 1: Unsafe because 6 2 is a decrease of 4.
-    1 3 2 4 5: Unsafe because 1 3 is increasing but 3 2 is decreasing.
-    8 6 4 4 1: Unsafe because 4 4 is neither an increase or a decrease.
-    1 3 6 7 9: Safe because the levels are all increasing by 1, 2, or 3.
-
-*/
 
 fn main() -> Result<(), Error> {
     let args = env::args().collect::<Vec<_>>();
     let file_name: &str = &args[1];
 
-    let reports = read_file(file_name).unwrap();
-    let mut safe_reports = 0;
+    let reports = read_file(file_name)?;
+    let mut valid_p1 = 0;
+    let mut valid_p2 = 0;
 
     for report in reports {
-        if check_report(&report).unwrap() {safe_reports += 1}
+        let p1 = is_report_safe(&report, false)?;
+        let p2 = is_report_safe(&report, true)?;
+        if p1 {
+            valid_p1 += 1
+        }
+        if p2 {
+            valid_p2 += 1
+        }
+        println!("report: {report:?} | valid: {p2}");
     }
-
-    println!("number of safe reports: {safe_reports}");
+    println!("number of valid reports on stage 1: {valid_p1}");
+    println!("number of valid reports on stage 2: {valid_p2}");
 
     Ok(())
 }
 
-fn check_report(report: &Vec<i32>) -> Result<bool, Error> {
-    match check_adjacent(&report).unwrap() && check_monotonic(&report).unwrap() {
-        true => return Ok(true),
-        false => return Ok(false),
+fn is_safe(report: &Vec<i32>) -> Result<bool, Error> {
+    let is_increasing = report.windows(2).all(|num| num[1] > num[0]);
+    let is_decreasing = report.windows(2).all(|num| num[0] > num[1]);
 
-    };
-}
-
-fn check_adjacent(report: &Vec<i32>) -> Result<bool, Error> {
-    for i in 0..report.len() - 1 {
-        let result = (report[i] - report[i + 1]).abs();
-        if result == 0 || result > 3 {
-            return Ok(false);
-        }
+    if !is_increasing && !is_decreasing {
+        return Ok(false);
     }
-    Ok(true)
+
+    Ok(report.windows(2).all(|num| (num[1] - num[0]).abs() <= 3))
 }
 
-fn check_monotonic(report: &Vec<i32>) -> Result<bool, Error> {
-    let mut increasing: bool = true;
-    let mut decreasing: bool = true;
+fn is_report_safe(report: &Vec<i32>, use_dampener: bool) -> Result<bool, Error> {
+    if is_safe(report)? {
+        return Ok(true);
+    }
 
-    for i in 0..report.len() - 1 {
-        if report[i] < report[i + 1] {
-            decreasing = false;
-        }
-        if report[i] > report[i + 1] {
-            increasing = false; 
+    if use_dampener {
+        for i in 0..report.len() {
+            let mut report_copy = report.clone();
+            report_copy.remove(i);
+            if is_safe(&report_copy)? {
+                return Ok(true);
+            }
         }
     }
 
-    Ok(increasing || decreasing)
+    Ok(false)
 }
 
 fn read_file(f: &str) -> Result<Vec<Vec<i32>>, Error> {
     let mut reports: Vec<Vec<i32>> = Vec::new();
-    for line in fs::read_to_string(f).unwrap().lines() {
+    for line in fs::read_to_string(f)?.lines() {
         let nums = line
             .split(" ")
             .map(|num| -> i32 { num.parse().unwrap() })
